@@ -1,0 +1,8 @@
+
+PROJECT_NAME      = warp
+PROJECT_BRIEF     = "Transmit via Sockets, portably"
+INPUT             = @CMAKE_CURRENT_SOURCE_DIR@/../
+JAVADOC_AUTOBRIEF = YES
+BRIEF_MEMBER_DESC = YES
+GENERATE_MAN      = YES
+INLINE_INFO       = NO
