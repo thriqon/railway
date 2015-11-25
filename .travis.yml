@@ -1,0 +1,33 @@
+
+language: cpp
+
+sudo: false
+
+addons:
+  apt:
+    sources:
+      - llvm-toolchain-precise
+      - ubuntu-toolchain-r-test
+      - george-edison55-precise-backports
+    packages:
+      - clang-3.7
+      - g++-5
+      - gcc-5
+      - cmake
+      - cmake-data
+
+install:
+  - if [ "$CXX" = "g++" ]; then export CXX="g++-5" CC="gcc-5"; fi
+  - if [ "$CXX" = "clang++" ]; then export CXX="clang++-3.7" CC="clang-3.7"; fi
+  - mkdir build
+
+before_script:
+  - cd build; cmake ../test/
+
+script:
+  - make all
+  - ./railway_test
+
+compiler:
+  - clang
+  - gcc
