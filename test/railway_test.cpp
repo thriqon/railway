@@ -18,9 +18,5 @@ TEST_CASE("throws when requesting unix sockets anyways", "[unix-sockets]") {
 TEST_CASE("supports unix sockets", "[unix-sockets]") {
   REQUIRE(railway::track::supports_unix_sockets() == true);
 }
-
-TEST_CASE("throws when path is NULL", "[unix-socket]") {
-  REQUIRE_THROWS(railway::track(NULL));
-}
 #endif
 
