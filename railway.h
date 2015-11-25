@@ -35,7 +35,7 @@
 
 // lets guess
 
-#ifdef __MINGW32__
+#if defined(__MINGW32__) || defined(_MSC_VER)
 #define RAILWAY_USE_WINSOCK
 #else
 #define RAILWAY_HAS_UNIX_SOCKET
