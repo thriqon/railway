@@ -1,0 +1,23 @@
+
+os: Visual Studio 2015
+
+init:
+  - git config --global core.autocrlf input
+
+platform:
+  - x64
+  - x86
+
+clone_folder: c:\projects\railway
+
+before_build:
+  - echo "Running cmake..."
+  - cd c:\projects\railway
+  - cmake -G "Visual Studio 14 2015 Win64" -DCMAKE_INSTALL_PREFIX="C:/projects/prefix" test/
+
+build:
+  project: INSTALL.vcxproj
+
+
+test_script:
+  - railway_test.exe
