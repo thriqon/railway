@@ -260,7 +260,12 @@ namespace railway {
 
         for (const struct addrinfo* runner = addr; runner != (const struct addrinfo*) 0; runner = runner->ai_next) {
           sock = Socket_RAII {runner->ai_family, runner->ai_socktype, runner->ai_protocol};
-          size_t result = ::connect(sock, runner->ai_addr, runner->ai_addrlen);
+#if defined(RAILWAY_USE_WINSOCK)
+          int addrlen = static_cast<int>(runner->ai_addrlen);
+#else
+          auto addrlen = runner->ai_addrlen;
+#endif
+          size_t result = ::connect(sock, runner->ai_addr, addrlen);
           if (result == 0) {
             break;
           }
