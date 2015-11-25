@@ -6,7 +6,7 @@ TEST_CASE("instantiable", "[railway]") {
 //  railway::track("mir.intstl.com", "qotd");
 }
 
-#if define(__MINGW32__) || defined(_MSC_VER)
+#if defined(__MINGW32__) || defined(_MSC_VER)
 TEST_CASE("doesnt't support unix sockets", "[unix-sockets]") {
   REQUIRE(railway::track::supports_unix_sockets() == false);
 }
