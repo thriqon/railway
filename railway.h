@@ -1,11 +1,49 @@
+/*
+ * RAILWAY v0.1
+ *
+ * Copyright (c) 2015, Jonas Weber
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+*
+*/
+
 #ifndef RAILWAY_H
 #define RAILWAY_H 
 
-#ifdef __MINGW32__
-#define RAILWAY__USE_WINSOCK
+#if defined(__has_include)
+// clang compatible compiler
+
+#if __has_include(<sys/un.h>)
+#define RAILWAY_HAS_UNIX_SOCKET
 #endif
 
-#ifdef RAILWAY__USE_WINSOCK
+#if __has_include(<winsock2.h>)
+#define RAILWAY_USE_WINSOCK
+#endif
+
+#else
+
+// lets guess
+
+#ifdef __MINGW32__
+#define RAILWAY_USE_WINSOCK
+#else
+#define RAILWAY_HAS_UNIX_SOCKET
+#endif
+
+#endif
+
+#ifdef RAILWAY_USE_WINSOCK
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #pragma comment (lib, "ws2_32.lib")
@@ -15,18 +53,21 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+
+#ifdef RAILWAY_HAS_UNIX_SOCKET
 #include <sys/un.h>
+#endif
+
 #include <netdb.h>
 #include <errno.h>
 #include <unistd.h>
 #endif
 
 #include <string>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-#include <assert.h>
+#include <cstring>
+#include <cstdlib>
+#include <cstdio>
+#include <cassert>
 
 namespace railway {
   /**
@@ -44,19 +85,29 @@ namespace railway {
    */
   class track {
     private:
-      static void throw_error_message(const std::string& prefix) {
-              throw prefix + ": " + strerror(errno);
+      /**
+       * Convenience method to simplify throw exceptions (of type std::string)
+       * including the error text from strerror().
+       *
+       * The thrown string is of the form: <code>[prefix]: [error]</code>
+       *
+       * @param prefix The string to show before the actual error
+       * @return Never.
+       */
+      static inline void throw_error_message(const std::string& prefix) {
+        throw prefix + ": " + strerror(errno);
       }
 
       class Socket_RAII {
-        private:
-#ifdef RAILWAY__USE_WINSOCK
+        public:
+#ifdef RAILWAY_USE_WINSOCK
           using socket_t = SOCKET;
           static const socket_t INVALID = INVALID_SOCKET;
 #else
           using socket_t = int;
           static const socket_t INVALID = -1;
 #endif
+        private:
           socket_t sock;
         public:
           Socket_RAII() : sock(0) {}
@@ -95,7 +146,7 @@ namespace railway {
 
           void close() {
             if (is_valid()) {
-#ifdef RAILWAY__USE_WINSOCK
+#ifdef RAILWAY_USE_WINSOCK
               closesocket(sock);
 #else
               ::close(sock);
@@ -104,7 +155,9 @@ namespace railway {
             }
           }
       };
-#ifdef RAILWAY__USE_WINSOCK
+      Socket_RAII sock;
+
+#ifdef RAILWAY_USE_WINSOCK
       class WSA_RAII {
         private:
           WSADATA wsa_data;
@@ -123,7 +176,6 @@ namespace railway {
 
       WSA_RAII winsocks;
 #endif
-      Socket_RAII sock;
 
       class AddrInfo_RAII {
         private:
@@ -148,6 +200,8 @@ namespace railway {
             return addr;
           }
       };
+
+
     public:
       enum Mode {
         Connect
@@ -158,10 +212,10 @@ namespace railway {
    * \return true, if it supports them.
    */
     static bool supports_unix_sockets() {
-#ifdef RAILWAY__USE_WINSOCK
-      return false;
-#else
+#if defined(RAILWAY_HAS_UNIX_SOCKET)
       return true;
+#else
+      return false;
 #endif
     }
 
@@ -172,9 +226,7 @@ namespace railway {
        * \param unix_path The filename to use, for example <code>/var/lib/service.sock</code>.
        */
       track(const std::string& unix_path, Mode mode = Connect) {
-#ifdef RAILWAY__USE_WINSOCK
-        throw std::string("Unix socket not supported on Winsock");
-#else
+#if defined(RAILWAY_HAS_UNIX_SOCKET)
         struct sockaddr_un un_addr;
         memset(&un_addr, 0, sizeof(struct sockaddr_un));
 
@@ -199,6 +251,8 @@ namespace railway {
             }
             break;
         }
+#else
+        throw std::string("Unix socket not supported on this platform");
 #endif
       }
       track(const std::string& host, const std::string& port, Mode mode = Connect) {
