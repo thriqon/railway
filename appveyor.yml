@@ -16,7 +16,7 @@ before_build:
   - cmake -G "Visual Studio 14 2015 Win64" -DCMAKE_INSTALL_PREFIX="C:/projects/prefix" test/
 
 build:
-  project: INSTALL.vcxproj
+  project: ALL_BUILD.vcxproj
 
 
 test_script:
