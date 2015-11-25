@@ -68,6 +68,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cassert>
+#include <functional>
 
 namespace railway {
   /**
@@ -110,7 +111,7 @@ namespace railway {
         private:
           socket_t sock;
         public:
-          Socket_RAII() : sock(0) {}
+          Socket_RAII() : sock(INVALID) {}
 
           Socket_RAII(int domain, int type, int protocol) {
             sock = socket(domain, type, protocol);
@@ -125,19 +126,23 @@ namespace railway {
  
           // Copy constructor is not supported
           Socket_RAII(const Socket_RAII& other) = delete;
+          Socket_RAII& operator= (const Socket_RAII& other) = delete;
 
           Socket_RAII(Socket_RAII&& other) noexcept : sock(other.sock){
-            other.sock = 0;
+            other.sock = INVALID;
           }
 
-          Socket_RAII& operator= (const Socket_RAII& other) = delete;
           Socket_RAII& operator= (Socket_RAII&& other) noexcept {
             std::swap(sock, other.sock);
             return *this;
           }
 
           operator socket_t () const {
-            return sock;
+            if (is_valid()) {
+              return sock;
+            } else {
+              throw std::string("Socket is not valid");
+            }
           }
 
           bool is_valid() const {
@@ -172,6 +177,16 @@ namespace railway {
           ~WSA_RAII() {
             WSACleanup();
           }
+          WSA_RAII(const WSA_RAII& other) = delete;
+          WSA_RAII& operator= (const WSA_RAII& other) = delete;
+
+          WSA_RAII(WSA_RAII&& other) noexcept : wsa_data(wsa_data) {
+            other.wsa_data = nullptr;
+          }
+          WSA_RAII& operator= (WSA_RAII&& other) noexcept {
+            std::swap(wsa_data, other.wsa_data);
+            return *this;
+          }
       };
 
       WSA_RAII winsocks;
@@ -196,8 +211,14 @@ namespace railway {
           }
           AddrInfo_RAII& operator=(const AddrInfo_RAII& other) = delete;
           AddrInfo_RAII& operator=(AddrInfo_RAII&& other) = delete;
-          operator struct addrinfo* () {
-            return addr;
+
+          bool any_succeeded(std::function<bool(const struct addrinfo&)> f) const {
+            for (const struct addrinfo* runner = addr; runner != (const struct addrinfo*) 0; runner = runner->ai_next) {
+              if (f(*runner)) {
+                return true;
+              }
+            }
+            return false;
           }
       };
 
@@ -206,25 +227,13 @@ namespace railway {
       enum Mode {
         Connect
       };
-  /**
-   * Tells whether the system supports unix sockets.
-   *
-   * \return true, if it supports them.
-   */
-    static bool supports_unix_sockets() {
+      static bool supports_unix_sockets() {
 #if defined(RAILWAY_HAS_UNIX_SOCKET)
-      return true;
+        return true;
 #else
-      return false;
+        return false;
 #endif
-    }
-
-      /**
-       * Constructs a Socket using a filesystem path to connect to
-       * a unix socket.
-       *
-       * \param unix_path The filename to use, for example <code>/var/lib/service.sock</code>.
-       */
+      }
       track(const std::string& unix_path, Mode mode = Connect) {
 #if defined(RAILWAY_HAS_UNIX_SOCKET)
         struct sockaddr_un un_addr;
@@ -258,22 +267,20 @@ namespace railway {
       track(const std::string& host, const std::string& port, Mode mode = Connect) {
         AddrInfo_RAII addr(host, port);
 
-        for (const struct addrinfo* runner = addr; runner != (const struct addrinfo*) 0; runner = runner->ai_next) {
-          sock = Socket_RAII {runner->ai_family, runner->ai_socktype, runner->ai_protocol};
-#if defined(RAILWAY_USE_WINSOCK)
-          int addrlen = static_cast<int>(runner->ai_addrlen);
-#else
-          auto addrlen = runner->ai_addrlen;
-#endif
-          size_t result = ::connect(sock, runner->ai_addr, addrlen);
-          if (result == 0) {
-            break;
+        bool did_connect_succeed = addr.any_succeeded([this] (const struct addrinfo& addr) {
+          sock = Socket_RAII {addr.ai_family, addr.ai_socktype, addr.ai_protocol};
+          if (!sock.is_valid()) {
+            return false;
           }
-        }
 
-        if (!sock.is_valid()) {
-          throw_error_message("Unable to connect");
-        }
+#if defined(RAILWAY_USE_WINSOCK)
+          const int& addrlen = static_cast<int>(addr.ai_addrlen);
+#else
+          const auto& addrlen = addr.ai_addrlen;
+#endif
+
+          return connect(sock, addr.ai_addr, addrlen) == 0;
+        });
       }
 
       int read(char* out_buf, int nBytes) {
