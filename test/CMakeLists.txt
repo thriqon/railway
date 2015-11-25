@@ -10,7 +10,6 @@ add_executable(railway_test runner.cpp railway_test.cpp)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   target_link_libraries(railway_test ws2_32)
-  set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} "-static")
 endif()
 
 find_package(Doxygen)
