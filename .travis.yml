@@ -29,7 +29,7 @@ before_script:
 
 script:
   - make all
-  - ./railway_test
+  - ./railway_test -s -r compact
 
 compiler:
   - clang

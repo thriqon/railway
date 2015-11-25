@@ -20,4 +20,4 @@ build:
 
 
 test_script:
-  - Debug\railway_test.exe
+  - Debug\railway_test.exe -s -r compact
